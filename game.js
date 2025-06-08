@@ -275,28 +275,36 @@ const camera = {
 };
 
 // Tag-/Nacht-Zyklus
+const DAY_FRAMES = 60 * 60 * 7; // 7 Minuten bei 60 FPS
+const NIGHT_FRAMES = 60 * 60 * 5; // 5 Minuten bei 60 FPS
+const TOTAL_FRAMES = DAY_FRAMES + NIGHT_FRAMES;
+
 const dayNightCycle = {
     time: 0,
     isNight: false,
-    
+    overlayAlpha: 0, // Für sanftes Fading
     update: function() {
-        this.time = (this.time + 1) % DAY_LENGTH;
-        this.isNight = this.time >= DAY_LENGTH / 2;
-        
+        this.time = (this.time + 1) % TOTAL_FRAMES;
+        this.isNight = this.time >= DAY_FRAMES;
+
+        // Fading berechnen
+        let targetAlpha = this.isNight ? 0.6 : 0;
+        // Sanftes Annähern an Zielwert
+        this.overlayAlpha += (targetAlpha - this.overlayAlpha) * 0.02;
+        if (Math.abs(targetAlpha - this.overlayAlpha) < 0.01) this.overlayAlpha = targetAlpha;
+
         document.getElementById('time').textContent = `Zeit: ${this.isNight ? 'Nacht' : 'Tag'}`;
-        
-        // Nacht-Overlay anpassen
-        const nightOverlay = document.querySelector('.night-overlay') || document.createElement('div');
-        
-        if (this.isNight) {
-            if (!nightOverlay.classList.contains('night-overlay')) {
-                nightOverlay.classList.add('night-overlay');
-                document.querySelector('.game-container').appendChild(nightOverlay);
-            }
-        } else if (nightOverlay.parentElement) {
-            nightOverlay.parentElement.removeChild(nightOverlay);
+
+        // Overlay-Element holen oder erzeugen
+        let nightOverlay = document.querySelector('.night-overlay');
+        if (!nightOverlay) {
+            nightOverlay = document.createElement('div');
+            nightOverlay.className = 'night-overlay';
+            document.querySelector('.game-container').appendChild(nightOverlay);
         }
-        
+        nightOverlay.style.opacity = this.overlayAlpha;
+        nightOverlay.style.display = (this.overlayAlpha > 0.01) ? 'block' : 'none';
+
         // Nachts werden Gegner stärker und aggressiver
         world.enemies.forEach(enemy => {
             enemy.strength = this.isNight ? enemy.baseStrength * 1.5 : enemy.baseStrength;
