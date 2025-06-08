@@ -1093,6 +1093,8 @@ function drawWorld() {
     for (const enemy of world.enemies) {
         if (isInViewport(enemy)) {
             if (images.enemy) {
+                // Gegner mit oranger Färbung zeichnen
+                ctx.save();
                 ctx.drawImage(
                     images.enemy,
                     enemy.x - camera.x,
@@ -1100,8 +1102,19 @@ function drawWorld() {
                     enemy.width,
                     enemy.height
                 );
+                
+                // Orangen Overlay-Filter hinzufügen
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = 'rgba(255, 165, 0, 0.7)'; // Orange mit 70% Deckkraft
+                ctx.fillRect(
+                    enemy.x - camera.x,
+                    enemy.y - camera.y,
+                    enemy.width,
+                    enemy.height
+                );
+                ctx.restore();
             } else {
-                ctx.fillStyle = '#F44336';
+                ctx.fillStyle = '#FF9800'; // Orange Farbe für Gegner ohne Textur
                 ctx.fillRect(
                     enemy.x - camera.x,
                     enemy.y - camera.y,
