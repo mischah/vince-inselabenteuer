@@ -125,6 +125,26 @@ const player = {
     // Quest-Status prüfen und abschließen
     checkQuestCompletion: function() {
         this.activeQuests.forEach((quest, index) => {
+            // Spezielle Behandlung basierend auf dem Quest-Typ
+            if (quest.objective.type === 'kill' && quest.objective.target === 'monster') {
+                // Kill-Quests werden im attack() bereits behandelt
+            } 
+            else if (quest.objective.type === 'gather') {
+                // Für Sammel-Quests überprüfen wir, ob die erforderlichen Gegenstände im Inventar sind
+                let count = 0;
+                this.inventory.forEach(item => {
+                    if (item.name === quest.objective.target) {
+                        count++;
+                    }
+                });
+                
+                quest.objective.current = count;
+            }
+            else if (quest.objective.type === 'explore') {
+                // Erkundungs-Quests werden an anderen Stellen aktualisiert
+            }
+            
+            // Überprüfen, ob die Quest abgeschlossen ist
             if (quest.checkCompletion(this)) {
                 // Quest abschließen und Belohnungen vergeben
                 this.completeQuest(index);
@@ -211,6 +231,20 @@ const player = {
                     // Gegner aus der Welt entfernen
                     world.enemies.splice(i, 1);
                     i--;
+                    
+                    // Quest-Fortschritt aktualisieren für Kill-Quests
+                    this.activeQuests.forEach(quest => {
+                        if (quest.objective.type === 'kill' && quest.objective.target === 'monster') {
+                            // Prüfen, ob es eine Nachtquest ist
+                            if (quest.objective.nightOnly) {
+                                if (dayNightCycle.isNight) {
+                                    quest.objective.current++;
+                                }
+                            } else {
+                                quest.objective.current++;
+                            }
+                        }
+                    });
                     
                     // Quest-Fortschritt überprüfen
                     this.checkQuestCompletion();
@@ -320,7 +354,7 @@ const world = {
         }
         
         // Gebäude generieren
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 8; i++) { // Erhöht auf 8 Gebäude für mehr NPCs
             const buildingSize = 80 + Math.random() * 40;
             let validPosition = false;
             let x, y;
@@ -351,56 +385,58 @@ const world = {
                 }
             }
             
-            this.buildings.push({
+            // Gebäude der Welt hinzufügen
+            const building = {
                 x: x,
                 y: y,
                 width: buildingSize,
                 height: buildingSize,
+                id: `building_${i}`,
                 type: i === 0 ? 'shop' : 'house'
-            });
+            };
+            
+            this.buildings.push(building);
             
             // NPCs in der Nähe von Gebäuden platzieren
-            if (i < 3) {
+            if (i === 0) {
+                // Händler beim ersten Gebäude
                 this.npcs.push({
                     x: x + buildingSize + 20,
                     y: y + buildingSize / 2,
                     width: 25,
                     height: 30,
                     color: '#FFD700',
-                    name: ['Händler', 'Dorfbewohner', 'Questgeber'][i],
+                    name: 'Händler',
                     dialogue: {
-                        greeting: ['Willkommen im Laden!', 'Hallo Reisender!', 'Brauchst du Hilfe?'][i],
+                        greeting: 'Willkommen im Laden!',
                         options: [
                             {
-                                text: ['Waren kaufen', 'Wie geht es dir?', 'Hast du eine Aufgabe für mich?'][i],
-                                response: ['Ich habe viele nützliche Dinge!', 'Mir geht es gut, danke.', 'Ja, ich habe eine wichtige Aufgabe.'][i],
-                                action: i === 2 ? 'giveQuest' : (i === 0 ? 'openShop' : null)
+                                text: 'Waren kaufen',
+                                response: 'Ich habe viele nützliche Dinge!',
+                                action: 'openShop'
                             },
                             {
                                 text: 'Auf Wiedersehen',
                                 response: 'Bis zum nächsten Mal!',
                                 action: 'close'
                             }
-                        ],
-                        quest: i === 2 ? {
-                            id: 'quest1',
-                            name: 'Jagd auf Monster',
-                            description: 'Töte 3 Monster um die Gegend sicherer zu machen.',
-                            objective: {
-                                type: 'kill',
-                                target: 'monster',
-                                count: 3,
-                                current: 0
-                            },
-                            rewards: {
-                                gold: 100,
-                                exp: 50
-                            },
-                            checkCompletion: function(player) {
-                                return this.objective.current >= this.objective.count;
-                            }
-                        } : null
+                        ]
                     }
+                });
+            } else if (i < questGivers.length + 1) {
+                // Quest-Geber aus der quests.js-Datei
+                const questGiver = questGivers[i - 1];
+                const npcX = i % 2 === 0 ? x + buildingSize + 20 : x - 40;
+                const npcY = i % 2 === 0 ? y + buildingSize / 2 : y + buildingSize / 3;
+                
+                this.npcs.push({
+                    x: npcX,
+                    y: npcY,
+                    width: 25,
+                    height: 30,
+                    color: questGiver.color || '#FFD700',
+                    name: questGiver.name,
+                    dialogue: questGiver.dialogue
                 });
             }
         }
@@ -799,6 +835,9 @@ function movePlayer() {
     // Kollisionen mit Objekten prüfen
     checkCollisions(prevX, prevY);
     
+    // Überprüfen, ob Spieler Gebäude für Quests entdeckt
+    checkBuildingDiscovery();
+    
     // Kamera dem Spieler folgen lassen
     camera.follow(player);
     
@@ -893,6 +932,49 @@ function checkCollisions(prevX, prevY) {
             } else {
                 alert('Inventar voll!');
             }
+        }
+    }
+}
+
+// Prüft, ob Spieler ein Gebäude für Erkundungs-Quests entdeckt hat
+function checkBuildingDiscovery() {
+    if (gamePaused) return;
+    
+    // Überprüfen, ob Spieler in der Nähe eines Gebäudes ist
+    for (const building of world.buildings) {
+        // Abstand zum Gebäude berechnen (nimm die Mitte des Gebäudes)
+        const distance = Math.sqrt(
+            Math.pow((building.x + building.width/2) - (player.x + player.width/2), 2) + 
+            Math.pow((building.y + building.height/2) - (player.y + player.height/2), 2)
+        );
+        
+        // Wenn Spieler nahe genug ist, gilt das Gebäude als entdeckt
+        const discoveryRange = 100; // Entdeckungsradius
+        
+        if (distance < discoveryRange) {
+            // Überprüfen, ob der Spieler Erkundungs-Quests hat
+            player.activeQuests.forEach(quest => {
+                if (quest.objective.type === 'explore') {
+                    // Wenn es eine Gebäude-Erkundungsquest ist
+                    if (quest.objective.target === 'house' && quest.registerLocation) {
+                        const isNew = quest.registerLocation(building.id);
+                        if (isNew) {
+                            alert(`Du hast ein neues Gebäude für deine Quest entdeckt! (${quest.objective.current}/${quest.objective.count})`);
+                            // Quest-Status überprüfen
+                            player.checkQuestCompletion();
+                        }
+                    }
+                    // Wenn es eine Schatzsuche ist und das richtige Gebäude
+                    else if (quest.objective.target === 'treasure' && building.id === 'building_3' && !quest.objective.found) {
+                        // Schatz gefunden!
+                        if (quest.findTreasure && quest.findTreasure()) {
+                            alert('Du hast den legendären Schatz gefunden!');
+                            // Quest-Status überprüfen
+                            player.checkQuestCompletion();
+                        }
+                    }
+                }
+            });
         }
     }
 }
@@ -1332,6 +1414,9 @@ function gameLoop() {
     
     // Gegner aktualisieren
     updateEnemies();
+    
+    // Gebäudeentdeckungen prüfen
+    checkBuildingDiscovery();
     
     // Welt zeichnen
     drawWorld();
