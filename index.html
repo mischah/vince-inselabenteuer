@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open World Spiel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="hud">
+            <div id="health">HP: 100</div>
+            <div id="position">Position: 0, 0</div>
+            <div id="time">Zeit: Tag</div>
+            <div id="inventory-button">Inventar [I]</div>
+            <div id="quest-button">Quests [Q]</div>
+        </div>
+    </div>
+    <div id="inventory-panel" class="panel hidden">
+        <h2>Inventar</h2>
+        <div id="inventory-items"></div>
+        <button id="close-inventory">Schließen</button>
+    </div>
+    <div id="quest-panel" class="panel hidden">
+        <h2>Quests</h2>
+        <div id="quest-list"></div>
+        <button id="close-quests">Schließen</button>
+    </div>
+    <div id="dialogue-panel" class="panel hidden">
+        <h2 id="npc-name"></h2>
+        <p id="dialogue-text"></p>
+        <div id="dialogue-options"></div>
+        <button id="close-dialogue">Schließen</button>
+    </div>
+    <script src="textures.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

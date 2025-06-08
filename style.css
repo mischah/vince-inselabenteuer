@@ -1,0 +1,154 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+}
+
+.game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+}
+
+#gameCanvas {
+    background-color: #000;
+    border: 2px solid #444;
+    width: 100%;
+    height: 100%;
+}
+
+.hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.hud div {
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.hud div:hover {
+    color: #FFC107;
+}
+
+.panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 2px solid #555;
+    border-radius: 10px;
+    padding: 20px;
+    width: 400px;
+    max-height: 500px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.panel h2 {
+    color: #FFC107;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.hidden {
+    display: none;
+}
+
+#inventory-items, #quest-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.inventory-item, .quest-item {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.inventory-item:hover, .quest-item:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.active-quest {
+    border: 1px solid #4CAF50;
+}
+
+button {
+    background-color: #555;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: block;
+    margin: 0 auto;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background-color: #777;
+}
+
+#dialogue-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.dialogue-option {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.dialogue-option:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.enemy {
+    position: absolute;
+    background-color: #F44336;
+    border: 2px solid #B71C1C;
+    border-radius: 50%;
+}
+
+.building {
+    position: absolute;
+    background-color: #795548;
+    border: 2px solid #5D4037;
+}
+
+/* Day/Night Effekte */
+.night-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 51, 0.5);
+    pointer-events: none;
+}
