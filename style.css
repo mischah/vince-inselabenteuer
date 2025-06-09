@@ -155,3 +155,47 @@ button:hover {
     opacity: 0;
     transition: opacity 1.5s linear;
 }
+
+#equipment-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    background: rgba(30,30,30,0.85);
+    border-radius: 8px;
+    border: 2px solid #555;
+    padding: 8px 24px;
+    min-width: 220px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    z-index: 50;
+    font-size: 18px;
+    color: #fff;
+    box-shadow: 0 2px 8px #0008;
+}
+
+#equipment-bar .eq-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 80px;
+}
+
+#equipment-bar .eq-label {
+    color: #FFC107;
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+#equipment-bar .eq-item {
+    color: #fff;
+    font-weight: normal;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #333;
+    border: 1px solid #666;
+    min-width: 60px;
+    text-align: center;
+}

@@ -814,51 +814,8 @@ function updateGlobalVillagers() {
 // Im Spiel-Loop aufrufen
 const originalGameLoop = gameLoop;
 gameLoop = function() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    dayNightCycle.update();
-    movePlayer();
-    updateEnemies();
-    updateGlobalVillagers();
-    updateVillageNPCs && updateVillageNPCs();
-    checkBuildingDiscovery();
-    drawWorld();
-    requestAnimationFrame(gameLoop);
-};
-
-// Im drawWorld(): Dorfbewohner-NPCs zeichnen
-const originalDrawWorld = drawWorld;
-drawWorld = function() {
-    originalDrawWorld();
-    // Dorfbewohner-NPCs zeichnen
-    for (const village of world.villages) {
-        if (!village.npcs) continue;
-        for (const npc of village.npcs) {
-            if (isInViewport(npc)) {
-                ctx.save();
-                ctx.fillStyle = npc.color;
-                ctx.fillRect(
-                    npc.x - camera.x,
-                    npc.y - camera.y,
-                    npc.width,
-                    npc.height
-                );
-                ctx.restore();
-            }
-        }
-    }
-    for (const npc of world.globalVillagers || []) {
-        if (isInViewport(npc)) {
-            ctx.save();
-            ctx.fillStyle = npc.color;
-            ctx.fillRect(
-                npc.x - camera.x,
-                npc.y - camera.y,
-                npc.width,
-                npc.height
-            );
-            ctx.restore();
-        }
-    }
+    originalGameLoop();
+    renderEquipmentBar();
 };
 
 // Dialog-System
@@ -934,45 +891,6 @@ const dialogueManager = {
     }
 };
 
-// Inventar-Management
-function updateInventoryPanel() {
-    const inventoryItems = document.getElementById('inventory-items');
-    inventoryItems.innerHTML = '';
-    
-    player.inventory.forEach((item, index) => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'inventory-item';
-        itemElement.textContent = item.name;
-        
-        itemElement.addEventListener('click', () => useItem(index));
-        
-        inventoryItems.appendChild(itemElement);
-    });
-    
-    // Leere Plätze hinzufügen
-    for (let i = player.inventory.length; i < player.maxInventorySize; i++) {
-        const emptySlot = document.createElement('div');
-        emptySlot.className = 'inventory-item empty';
-        emptySlot.textContent = '-';
-        inventoryItems.appendChild(emptySlot);
-    }
-}
-
-// Item verwenden
-function useItem(itemIndex) {
-    const item = player.inventory[itemIndex];
-    
-    if (item.type === 'potion' && item.effect) {
-        // Trank verwenden
-        if (item.effect.health) {
-            player.heal(item.effect.health);
-            player.removeItem(itemIndex);
-            updateInventoryPanel();
-            alert(`Du hast ${item.name} verwendet und ${item.effect.health} HP geheilt!`);
-        }
-    }
-}
-
 // Quest-Management
 function updateQuestPanel() {
     const questList = document.getElementById('quest-list');
@@ -1001,6 +919,72 @@ function updateQuestPanel() {
         questList.appendChild(questElement);
     });
 }
+
+// --- Ausrüstungsleiste (Equipment Bar) ---
+const equipmentSlots = {
+    weapon: null,
+    armor: null
+};
+
+function renderEquipmentBar() {
+    const bar = document.getElementById('equipment-bar');
+    if (!bar) return;
+    bar.innerHTML = `
+        <div class="eq-slot"><span class="eq-label">Waffe:</span> <span class="eq-item">${equipmentSlots.weapon ? equipmentSlots.weapon.name : '-'}</span></div>
+        <div class="eq-slot"><span class="eq-label">Rüstung:</span> <span class="eq-item">${equipmentSlots.armor ? equipmentSlots.armor.name : '-'}</span></div>
+    `;
+}
+
+function equipItem(itemIndex) {
+    const item = player.inventory[itemIndex];
+    if (!item) return;
+    if (item.type === 'weapon') {
+        equipmentSlots.weapon = item;
+    } else if (item.type === 'armor') {
+        equipmentSlots.armor = item;
+    } else {
+        return;
+    }
+    renderEquipmentBar();
+}
+
+// --- Inventory Panel ---
+function updateInventoryPanel() {
+    const inventoryItems = document.getElementById('inventory-items');
+    if (!inventoryItems) return;
+    inventoryItems.innerHTML = '';
+    player.inventory.forEach((item, idx) => {
+        const el = document.createElement('div');
+        el.className = 'inventory-item';
+        el.textContent = item.name;
+        inventoryItems.appendChild(el);
+    });
+}
+
+// updateInventoryPanel erweitern, nicht überschreiben
+if (typeof updateInventoryPanel === 'function') {
+    const origUpdateInventoryPanel = updateInventoryPanel;
+    updateInventoryPanel = function() {
+        origUpdateInventoryPanel();
+        // Buttons für Ausrüsten ergänzen
+        const inventoryItems = document.getElementById('inventory-items');
+        Array.from(inventoryItems.children).forEach((el, idx) => {
+            const item = player.inventory[idx];
+            if (item && (item.type === 'weapon' || item.type === 'armor')) {
+                const btn = document.createElement('button');
+                btn.textContent = 'Ausrüsten';
+                btn.style.marginLeft = '8px';
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    equipItem(idx);
+                };
+                el.appendChild(btn);
+            }
+        });
+    };
+}
+
+document.addEventListener('DOMContentLoaded', renderEquipmentBar);
 
 // Tastatur-Eingaben
 const keys = {};
