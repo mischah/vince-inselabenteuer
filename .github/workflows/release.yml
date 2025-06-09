@@ -1,0 +1,231 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release Type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.version-bump.outputs.new_tag }}
+      changelog: ${{ steps.generate-changelog.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version
+        id: version-bump
+        uses: phips28/gh-action-bump-version@master
+        with:
+          minor-wording: 'MINOR'
+          major-wording: 'MAJOR'
+          patch-wording: 'PATCH'
+          default: ${{ github.event.inputs.release_type }}
+          rc-wording: 'RC'
+          skip-tag: 'true'
+          commit-message: 'Bump version to {{version}}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Get new version
+        run: echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Generate changelog
+        id: generate-changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configuration: |
+            {
+              "categories": [
+                {
+                  "title": "## Changes",
+                  "labels": []
+                }
+              ],
+              "ignore_labels": ["ignore-for-release"],
+              "sort": "ASC",
+              "template": "${{CHANGELOG}}",
+              "pr_template": "- ${{TITLE}} (#${{NUMBER}})",
+              "commit_template": "- ${{subject}} (${{hash}})",
+              "empty_template": "- First release"
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        run: |
+          # Sichern der existierenden CHANGELOG.md, falls vorhanden
+          if [ -f CHANGELOG.md ]; then
+            cp CHANGELOG.md CHANGELOG.md.bak
+          fi
+          
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## v${{ env.NEW_VERSION }} ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "${{ steps.generate-changelog.outputs.changelog }}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          # Vorherige Einträge wieder anfügen, falls vorhanden
+          if [ -f CHANGELOG.md.bak ]; then
+            # Die ersten 2 Zeilen überspringen (Überschrift)
+            awk 'NR>2' CHANGELOG.md.bak >> CHANGELOG.md
+            rm CHANGELOG.md.bak
+          fi
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG.md for v${{ env.NEW_VERSION }}" || echo "No changes to commit"
+          git push
+
+      - name: Create Git tag
+        run: |
+          git tag v${{ env.NEW_VERSION }}
+          git push --tags
+      
+      - name: Upload package.json
+        uses: actions/upload-artifact@v3
+        with:
+          name: package-json
+          path: package.json
+
+      - name: Upload CHANGELOG.md
+        uses: actions/upload-artifact@v3
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+  build-mac:
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download package.json
+        uses: actions/download-artifact@v3
+        with:
+          name: package-json
+          path: .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for macOS
+        run: npm run build:mac
+
+      - name: Upload Mac artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-build
+          path: |
+            dist/*.dmg
+            dist/mac/*.dmg
+
+  build-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download package.json
+        uses: actions/download-artifact@v3
+        with:
+          name: package-json
+          path: .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Windows
+        run: npm run build:win
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/win-unpacked/*.exe
+            dist/win/*.exe
+
+  create-release:
+    needs: [build, build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Mac artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: mac-build
+          path: mac-build
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-build
+          path: windows-build
+
+      - name: Download CHANGELOG
+        uses: actions/download-artifact@v3
+        with:
+          name: changelog
+          path: .
+
+      - name: List files
+        run: |
+          ls -la mac-build/
+          ls -la windows-build/
+          cat CHANGELOG.md | head -20
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.build.outputs.new_tag }}
+          name: Release v${{ needs.build.outputs.new_tag }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          files: |
+            mac-build/*.dmg
+            windows-build/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
