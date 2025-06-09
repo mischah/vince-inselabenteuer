@@ -1758,24 +1758,43 @@ function gameLoop() {
 
 // Spiel initialisieren
 async function init() {
-    // UI-Events einrichten
-    setupUIEvents();
-    
-    // Bilder laden
-    await loadImages();
-    
-    // Spieler-Texturen laden
-    await loadPlayerTextures();
-    
-    // Welt generieren
-    world.generate();
-    
-    // Spiel starten
-    gameLoop();
+    console.log('Game initialization started...');
+    try {
+        // UI-Events einrichten
+        setupUIEvents();
+        console.log('UI Events setup complete');
+        
+        // Bilder laden
+        console.log('Loading images...');
+        await loadImages();
+        console.log('Images loaded successfully');
+        
+        // Spieler-Texturen laden
+        console.log('Loading player textures...');
+        await loadPlayerTextures();
+        console.log('Player textures loaded successfully');
+        
+        // Welt generieren
+        console.log('Generating world...');
+        world.generate();
+        console.log('World generation complete');
+        
+        // Canvas-Größe prüfen
+        const canvas = document.getElementById('gameCanvas');
+        console.log('Canvas dimensions:', canvas.width, canvas.height);
+        
+        // Spiel starten
+        console.log('Starting game loop...');
+        gameLoop();
+        console.log('Game initialization complete');
+    } catch (error) {
+        console.error('ERROR during game initialization:', error);
+    }
 }
 
 // Spiel starten
-init();
+console.log('Calling init function...');
+init().catch(err => console.error('Failed to initialize game:', err));
 
 // Hilfsfunktion: Dorfbewohner eines Dorfes werden aggressiv
 function makeVillageAggressive(village, duration = 600) {

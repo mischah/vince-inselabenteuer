@@ -1,0 +1,37 @@
+{
+  "name": "inselabenteuer",
+  "productName": "Inselabenteuer",
+  "version": "1.0.0",
+  "description": "Ein Spiel über ein Abenteuer auf einer Insel",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder -mw",
+    "build:mac": "electron-builder -m",
+    "build:win": "electron-builder -w"
+  },
+  "author": {
+    "name": "Inselabenteuer Team"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.inselabenteuer.game",
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "graphics/icon.icns"
+    },
+    "win": {
+      "icon": "graphics/icon.ico"
+    },
+    "files": [
+      "**/*",
+      "!graphics/icon.{ico,icns}",
+      "graphics/icon.png"
+    ]
+  }
+}
