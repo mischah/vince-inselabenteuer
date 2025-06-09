@@ -967,6 +967,29 @@ function updateInventoryPanel() {
             };
             el.appendChild(btn);
         }
+        // Wegwerfen-Button für alle Items
+        const dropBtn = document.createElement('button');
+        dropBtn.textContent = 'Wegwerfen';
+        dropBtn.style.marginLeft = '8px';
+        dropBtn.onclick = (e) => {
+            e.stopPropagation();
+            // Item ausrüsten entfernen, falls es ausgerüstet ist
+            if (equipmentSlots.weapon === item) equipmentSlots.weapon = null;
+            if (equipmentSlots.armor === item) equipmentSlots.armor = null;
+            // Item aus Inventar entfernen
+            player.removeItem(idx);
+            // Item in die Welt droppen (an Spielerposition)
+            world.items.push({
+                x: player.x,
+                y: player.y,
+                width: 15,
+                height: 15,
+                item: item
+            });
+            renderEquipmentBar();
+            updateInventoryPanel();
+        };
+        el.appendChild(dropBtn);
         inventoryItems.appendChild(el);
     });
 }
