@@ -1,5 +1,17 @@
+// Verschiedene Item-Typen für die Welt
+const itemTypes = [
+    { name: 'Heiltrank', type: 'potion', effect: { health: 30 } },
+    { name: 'Mana-Trank', type: 'potion', effect: { mana: 20 } },
+    { name: 'Holz', type: 'material', value: 2 },
+    { name: 'Stein', type: 'material', value: 3 },
+    { name: 'Eisen', type: 'material', value: 5 },
+    { name: 'Schwert', type: 'weapon', attackBonus: 5, value: 20 },
+    { name: 'Schild', type: 'armor', defenseBonus: 3, value: 15 },
+    { name: 'Goldmünze', type: 'gold', value: 10 }
+];
+
 // Game Constants
-const WORLD_SIZE = 2000; // Größe der Spielwelt
+const WORLD_SIZE = 4000; // Größe der Spielwelt (erhöht)
 const TILE_SIZE = 50;    // Größe eines Tiles
 const PLAYER_SPEED = 5;  // Bewegungsgeschwindigkeit des Spielers
 const DAY_LENGTH = 600;  // Länge eines Tages in Frames (ca. 10 Sekunden)
@@ -254,11 +266,28 @@ const player = {
                 return true; // Erfolgreich angegriffen
             }
         }
-        return false; // Kein Gegner in Reichweite
+        // Prüfe Dorfbewohner in der Nähe
+        for (const village of world.villages) {
+            if (!village.npcs) continue;
+            for (const npc of village.npcs) {
+                const distance = Math.sqrt(
+                    Math.pow(npc.x - this.x, 2) + 
+                    Math.pow(npc.y - this.y, 2)
+                );
+                if (distance < range) {
+                    attackNPC(npc); // -> macht das Dorf aggressiv
+                    // Optional: Dorfbewohner nehmen Schaden, können aber nicht sterben
+                    // npc.health = (npc.health || 20) - this.attackPower;
+                    // if (npc.health <= 0) npc.health = 1;
+                    return true;
+                }
+            }
+        }
+        return false; // Kein Gegner oder NPC in Reichweite
     }
 };
 
-// Kamera-Objekt
+// Kamera-Objekt (anpassen, damit Kamera nicht über den Rand hinausgeht)
 const camera = {
     x: 0,
     y: 0,
@@ -267,7 +296,6 @@ const camera = {
     follow: function(target) {
         this.x = target.x - this.width / 2;
         this.y = target.y - this.height / 2;
-        
         // Begrenzungen der Kamera
         this.x = Math.max(0, Math.min(this.x, WORLD_SIZE - this.width));
         this.y = Math.max(0, Math.min(this.y, WORLD_SIZE - this.height));
@@ -346,14 +374,15 @@ const world = {
         }
         
         // Bäume und Felsen generieren
-        for (let i = 0; i < 100; i++) {
+        this.trees = [];
+        this.rocks = [];
+        for (let i = 0; i < 300; i++) { // Mehr Bäume und Felsen für größere Welt
             this.trees.push({
                 x: Math.random() * WORLD_SIZE,
                 y: Math.random() * WORLD_SIZE,
                 width: 30,
                 height: 40
             });
-            
             this.rocks.push({
                 x: Math.random() * WORLD_SIZE,
                 y: Math.random() * WORLD_SIZE,
@@ -363,7 +392,9 @@ const world = {
         }
         
         // Gebäude generieren
-        for (let i = 0; i < 8; i++) { // Erhöht auf 8 Gebäude für mehr NPCs
+        this.buildings = [];
+        this.npcs = [];
+        for (let i = 0; i < 16; i++) { // Mehr Gebäude für größere Welt
             const buildingSize = 80 + Math.random() * 40;
             let validPosition = false;
             let x, y;
@@ -451,7 +482,8 @@ const world = {
         }
         
         // Gegner generieren
-        for (let i = 0; i < 15; i++) {
+        this.enemies = [];
+        for (let i = 0; i < 40; i++) { // Mehr Gegner für größere Welt
             let validPosition = false;
             let x, y;
             
@@ -502,14 +534,8 @@ const world = {
         }
         
         // Zufällige Items in der Welt platzieren
-        const itemTypes = [
-            { name: 'Holz', type: 'material', value: 2 },
-            { name: 'Stein', type: 'material', value: 3 },
-            { name: 'Heiltrank', type: 'potion', effect: { health: 20 } },
-            { name: 'Gold', type: 'currency', value: 5 }
-        ];
-        
-        for (let i = 0; i < 20; i++) {
+        this.items = [];
+        for (let i = 0; i < 60; i++) { // Mehr Items für größere Welt
             let validPosition = false;
             let x, y;
             
@@ -538,7 +564,8 @@ const world = {
         }
         
         // Dörfer generieren
-        for (let i = 0; i < 3; i++) {
+        this.villages = [];
+        for (let i = 0; i < 6; i++) { // Mehr Dörfer für größere Welt
             let validPosition = false;
             let x, y;
             
@@ -1732,3 +1759,21 @@ async function init() {
 
 // Spiel starten
 init();
+
+// Hilfsfunktion: Dorfbewohner eines Dorfes werden aggressiv
+function makeVillageAggressive(village, duration = 600) {
+    if (!village.npcs) return;
+    for (const npc of village.npcs) {
+        npc.aggressive = true;
+        npc.aggressiveTimer = duration;
+    }
+}
+
+// Spieler-Angriff auf NPCs (Dorfbewohner)
+function attackNPC(npc) {
+    // Prüfe, ob es ein Dorfbewohner ist
+    if (npc.name === 'Dorfbewohner' && npc.homeVillage) {
+        makeVillageAggressive(npc.homeVillage);
+    }
+    // ...hier ggf. weiteren Schaden/Logik für NPCs einfügen...
+}
