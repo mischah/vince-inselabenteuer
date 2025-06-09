@@ -209,6 +209,11 @@ const player = {
     // Angreifen
     attack: function() {
         const range = 50;
+        // Berechne Angriffskraft mit Waffe
+        let attackPower = this.attackPower;
+        if (equipmentSlots.weapon && equipmentSlots.weapon.attackBonus) {
+            attackPower += equipmentSlots.weapon.attackBonus;
+        }
         // Prüfe Gegner in der Nähe
         for (let i = 0; i < world.enemies.length; i++) {
             const enemy = world.enemies[i];
@@ -216,19 +221,14 @@ const player = {
                 Math.pow(enemy.x - this.x, 2) + 
                 Math.pow(enemy.y - this.y, 2)
             );
-            
             if (distance < range) {
                 // Schaden am Gegner verursachen
-                enemy.health -= this.attackPower;
-                
+                enemy.health -= attackPower;
                 if (enemy.health <= 0) {
                     // Gegner besiegt, Belohnungen erhalten
                     this.gold += enemy.gold;
                     this.experience += enemy.exp;
-                    
-                    // Prüfe, ob Gegenstände fallen gelassen werden
                     if (enemy.drops && Math.random() < enemy.dropChance) {
-                        // Zufälligen Drop auswählen
                         const dropIndex = Math.floor(Math.random() * enemy.drops.length);
                         const item = enemy.drops[dropIndex];
                         world.items.push({
@@ -239,15 +239,10 @@ const player = {
                             item: item
                         });
                     }
-                    
-                    // Gegner aus der Welt entfernen
                     world.enemies.splice(i, 1);
                     i--;
-                    
-                    // Quest-Fortschritt aktualisieren für Kill-Quests
                     this.activeQuests.forEach(quest => {
                         if (quest.objective.type === 'kill' && quest.objective.target === 'monster') {
-                            // Prüfen, ob es eine Nachtquest ist
                             if (quest.objective.nightOnly) {
                                 if (dayNightCycle.isNight) {
                                     quest.objective.current++;
@@ -257,13 +252,10 @@ const player = {
                             }
                         }
                     });
-                    
-                    // Quest-Fortschritt überprüfen
                     this.checkQuestCompletion();
                     this.checkLevelUp();
                 }
-                
-                return true; // Erfolgreich angegriffen
+                return true;
             }
         }
         // Prüfe Dorfbewohner in der Nähe
@@ -275,15 +267,12 @@ const player = {
                     Math.pow(npc.y - this.y, 2)
                 );
                 if (distance < range) {
-                    attackNPC(npc); // -> macht das Dorf aggressiv
-                    // Optional: Dorfbewohner nehmen Schaden, können aber nicht sterben
-                    // npc.health = (npc.health || 20) - this.attackPower;
-                    // if (npc.health <= 0) npc.health = 1;
+                    attackNPC(npc);
                     return true;
                 }
             }
         }
-        return false; // Kein Gegner oder NPC in Reichweite
+        return false;
     }
 };
 
@@ -939,9 +928,18 @@ function equipItem(itemIndex) {
     const item = player.inventory[itemIndex];
     if (!item) return;
     if (item.type === 'weapon') {
-        equipmentSlots.weapon = item;
+        // Wenn bereits ausgerüstet, ablegen
+        if (equipmentSlots.weapon === item) {
+            equipmentSlots.weapon = null;
+        } else {
+            equipmentSlots.weapon = item;
+        }
     } else if (item.type === 'armor') {
-        equipmentSlots.armor = item;
+        if (equipmentSlots.armor === item) {
+            equipmentSlots.armor = null;
+        } else {
+            equipmentSlots.armor = item;
+        }
     } else {
         return;
     }
@@ -957,6 +955,18 @@ function updateInventoryPanel() {
         const el = document.createElement('div');
         el.className = 'inventory-item';
         el.textContent = item.name;
+        // Ausrüsten-Button für Waffen und Rüstung
+        if (item.type === 'weapon' || item.type === 'armor') {
+            const btn = document.createElement('button');
+            btn.textContent = (equipmentSlots[item.type] === item) ? 'Ablegen' : 'Ausrüsten';
+            btn.style.marginLeft = '8px';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                equipItem(idx);
+                updateInventoryPanel();
+            };
+            el.appendChild(btn);
+        }
         inventoryItems.appendChild(el);
     });
 }
