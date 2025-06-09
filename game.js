@@ -666,17 +666,48 @@ function updateVillageNPCs() {
     for (const village of world.villages) {
         if (!village.npcs) continue;
         for (const npc of village.npcs) {
-            npc.moveAngle += npc.moveSpeed;
-            const r = 60 + Math.abs(Math.sin(npc.moveAngle * 0.7)) * 80;
-            npc.x = village.x + Math.cos(npc.moveAngle) * r;
-            npc.y = village.y + Math.sin(npc.moveAngle) * r;
+            if (npc.aggressive) {
+                // Aggressiv: Auf Spieler zulaufen
+                const dx = player.x - npc.x;
+                const dy = player.y - npc.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 2) {
+                    npc.x += (dx/dist) * 1.2;
+                    npc.y += (dy/dist) * 1.2;
+                }
+                npc.aggressiveTimer--;
+                if (npc.aggressiveTimer <= 0) {
+                    npc.aggressive = false;
+                }
+            } else {
+                // Im Normalfall: Kreisbewegung um das Dorfzentrum
+                npc.moveAngle += npc.moveSpeed;
+                const r = 60 + Math.abs(Math.sin(npc.moveAngle * 0.7)) * 80;
+                npc.x = village.x + Math.cos(npc.moveAngle) * r;
+                npc.y = village.y + Math.sin(npc.moveAngle) * r;
+            }
         }
     }
 }
 
-// Dorfbewohner in der Welt bewegen (tagsüber laufen, nachts heimkehren)
 function updateGlobalVillagers() {
     for (const npc of world.globalVillagers || []) {
+        if (npc.aggressive) {
+            // Aggressiv: Auf Spieler zulaufen
+            const dx = player.x - npc.x;
+            const dy = player.y - npc.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 2) {
+                npc.x += (dx/dist) * 1.2;
+                npc.y += (dy/dist) * 1.2;
+            }
+            npc.aggressiveTimer--;
+            if (npc.aggressiveTimer <= 0) {
+                npc.aggressive = false;
+            }
+            continue;
+        }
+        // Normalverhalten
         if (dayNightCycle.isNight) {
             // Nachts: Gehe zum Haus
             const target = npc.homeBuilding;
@@ -1577,49 +1608,54 @@ function updateEnemies() {
     if (gamePaused) return;
     
     world.enemies.forEach(enemy => {
-        // Abstand zum Spieler berechnen
+        // Nachts: Gegner meiden Dörfer
+        if (dayNightCycle.isNight && isInVillage(enemy.x, enemy.y)) {
+            // Gegner verlässt das Dorf (bewegt sich nach außen)
+            const nearestVillage = world.villages.reduce((nearest, v) => {
+                const d = Math.sqrt((enemy.x - v.x) ** 2 + (enemy.y - v.y) ** 2);
+                return d < Math.sqrt((enemy.x - nearest.x) ** 2 + (enemy.y - nearest.y) ** 2) ? v : nearest;
+            }, world.villages[0]);
+            const dx = enemy.x - nearestVillage.x;
+            const dy = enemy.y - nearestVillage.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < nearestVillage.radius + 10) {
+                // Bewege Gegner nach außen
+                enemy.x += (dx / dist) * enemy.speed * 2;
+                enemy.y += (dy / dist) * enemy.speed * 2;
+            }
+            // Gegner greifen im Dorf nicht an
+            return;
+        }
         const distToPlayer = Math.sqrt(
             Math.pow(player.x - enemy.x, 2) + 
             Math.pow(player.y - enemy.y, 2)
         );
-        
-        // Wenn Spieler in Reichweite, verfolgen
         if (distToPlayer < enemy.aggroRange) {
             enemy.active = true;
-            
-            // Richtung zum Spieler berechnen
             const dx = player.x - enemy.x;
             const dy = player.y - enemy.y;
             const length = Math.sqrt(dx * dx + dy * dy);
-            
-            // Normalisierte Bewegung
             if (length > 0) {
                 enemy.x += (dx / length) * enemy.speed;
                 enemy.y += (dy / length) * enemy.speed;
             }
-            
             // Angriff, wenn Spieler sehr nah ist
             if (distToPlayer < 40 && !dayNightCycle.isNight) {
-                // Bei Tag sind die Angriffe nicht so häufig
                 if (Math.random() < 0.01) {
                     player.takeDamage(enemy.strength);
                 }
             } else if (distToPlayer < 40 && dayNightCycle.isNight) {
-                // Bei Nacht greifen Gegner öfter an
                 if (Math.random() < 0.03) {
                     player.takeDamage(enemy.strength);
                 }
             }
         } else {
             enemy.active = false;
-            
-            // Zufällige Bewegung wenn inaktiv
             if (Math.random() < 0.02) {
                 enemy.x += (Math.random() - 0.5) * 5;
                 enemy.y += (Math.random() - 0.5) * 5;
             }
         }
-        
         // Gegner in der Welt halten
         enemy.x = Math.max(0, Math.min(enemy.x, WORLD_SIZE - enemy.width));
         enemy.y = Math.max(0, Math.min(enemy.y, WORLD_SIZE - enemy.height));
@@ -1696,4 +1732,3 @@ async function init() {
 
 // Spiel starten
 init();
-            if (i === 0) {                // Händler beim ersten Gebäude                this.npcs.push({                    x: x + buildingSize + 20,                    y: y + buildingSize / 2,                    width: 25,                    height: 30,                    color: '#FFD700',                    name: 'Händler',                    dialogue: {                        greeting: 'Willkommen im Laden!',                        options: [                            {                                text: 'Waren kaufen',                                response: 'Ich habe viele nützliche Dinge!',                                action: 'openShop'                            },                            {                                text: 'Auf Wiedersehen',                                response: 'Bis zum nächsten Mal!',                                action: 'close'                            }                        ]                    }                });            } else if (i < questGivers.length + 1) {                // Quest-Geber aus der quests.js-Datei                const questGiver = questGivers[i - 1];                const npcX = i % 2 === 0 ? x + buildingSize + 20 : x - 40;                const npcY = i % 2 === 0 ? y + buildingSize / 2 : y + buildingSize / 3;                                this.npcs.push({                    x: npcX,                    y: npcY,                    width: 25,                    height: 30,                    color: questGiver.color || '#FFD700',                    name: questGiver.name,                    dialogue: questGiver.dialogue                });            }        }                // Gegner generieren        for (let i = 0; i < 15; i++) {            let validPosition = false;            let x, y;                        // Stelle sicher, dass Gegner nicht im Wasser oder zu nah am Spieler sind            while (!validPosition) {                x = Math.random() * WORLD_SIZE;                y = Math.random() * WORLD_SIZE;                                const tileX = Math.floor(x / TILE_SIZE);                const tileY = Math.floor(y / TILE_SIZE);                                if (tileY < this.map.length && tileX < this.map[tileY].length &&                     this.map[tileY][tileX] !== 1) {                                        // Abstand zum Spieler prüfen                    const distToPlayer = Math.sqrt(                        Math.pow(player.x - x, 2) +                         Math.pow(player.y - y, 2)                    );                                        if (distToPlayer > 300) {                        validPosition = true;                    }                }            }                        this.enemies.push({                x: x,                y: y,                width: 25,                height: 25,                speed: 1 + Math.random() * 2,                baseStrength: 5 + Math.floor(Math.random() * 10),                strength: 5 + Math.floor(Math.random() * 10),                health: 50,                maxHealth: 50,                type: 'monster',                gold: 5 + Math.floor(Math.random() * 10),                exp: 20 + Math.floor(Math.random() * 20),                aggroRange: 150,                active: false,                dropChance: 0.3,                drops: [                    { name: 'Heiltrank', type: 'potion', effect: { health: 50 } },                    { name: 'Monster-Klaue', type: 'material', value: 5 }                ]            });        }                // Zufällige Items in der Welt platzieren        const itemTypes = [            { name: 'Holz', type: 'material', value: 2 },            { name: 'Stein', type: 'material', value: 3 },            { name: 'Heiltrank', type: 'potion', effect: { health: 20 } },            { name: 'Gold', type: 'currency', value: 5 }        ];                for (let i = 0; i < 20; i++) {            let validPosition = false;            let x, y;                        while (!validPosition) {                x = Math.random() * WORLD_SIZE;                y = Math.random() * WORLD_SIZE;                                const tileX = Math.floor(x / TILE_SIZE);                const tileY = Math.floor(y / TILE_SIZE);                                if (tileY < this.map.length && tileX < this.map[tileY].length &&                     this.map[tileY][tileX] !== 1) {                    validPosition = true;                }            }                        const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];                        this.items.push({                x: x,                y: y,                width: 15,                height: 15,                item: randomItem            });        }                // Dörfer generieren        for (let i = 0; i < 3; i++) {            let validPosition = false;            let x, y;                        // Stelle sicher, dass Dörfer nicht im Wasser oder zu nah beieinander sind            while (!validPosition) {                x = Math.random() * (WORLD_SIZE - 200) + 100;                y = Math.random() * (WORLD_SIZE - 200) + 100;                                const tileX = Math.floor(x / TILE_SIZE);                const tileY = Math.floor(y / TILE_SIZE);                                if (this.map[tileY][tileX] !== 1) {                    validPosition = true;                                        // Prüfe Abstand zu anderen Dörfern                    for (const village of this.villages) {                        const dist = Math.sqrt(                            Math.pow(village.x - x, 2) +                             Math.pow(village.y - y, 2)                        );                                                if (dist < 400) {                            validPosition = false;                            break;                        }                    }                }            }                        // Dorf zur Welt hinzufügen            const village = {                x: x,                y: y,                radius: 200,                buildings: [],                name: `Dorf ${i + 1}`            };                        this.villages.push(village);                        // Gebäude im Dorf hinzufügen            for (let j = 0; j < 5; j++) {                const buildingSize = 40 + Math.random() * 40;                                const building = {                    x: x + Math.cos((j / 5) * 2 * Math.PI) * 70 - buildingSize / 2,                    y: y + Math.sin((j / 5) * 2 * Math.PI) * 70 - buildingSize / 2,                    width: buildingSize,                    height: buildingSize,                    color: '#795548'                };                                village.buildings.push(building);            }        }    }};// Hilfsfunktion: Erzeuge zufällige Dorfbewohner für jedes Dorffunction spawnVillageNPCs() {    for (const village of world.villages) {        if (!village.npcs) village.npcs = [];        const npcCount = 2 + Math.floor(Math.random() * 2); // 2-3 NPCs        for (let i = 0; i < npcCount; i++) {            const angle = Math.random() * Math.PI * 2;            const radius = 60 + Math.random() * 80;            village.npcs.push({                x: village.x + Math.cos(angle) * radius,                y: village.y + Math.sin(angle) * radius,                width: 22,                height: 28,                color: '#FFB74D',                name: 'Dorfbewohner',                moveAngle: angle,                moveSpeed: 0.003 + Math.random() * 0.002,                homeVillage: village            });        }    }}// Hilfsfunktion: Erzeuge weltweite Dorfbewohner mit Heimatdorffunction spawnGlobalVillagers() {    if (!world.globalVillagers) world.globalVillagers = [];    const npcCount = 8; // z.B. 8 Dorfbewohner in der Welt    for (let i = 0; i < npcCount; i++) {        // Zufälliges Dorf als Heimat        const homeVillage = world.villages[Math.floor(Math.random() * world.villages.length)];        // Zufälliges Haus im Dorf        const homeBuilding = homeVillage.buildings[Math.floor(Math.random() * homeVillage.buildings.length)];        let valid = false, x, y;        while (!valid) {            x = Math.random() * (WORLD_SIZE - 40);            y = Math.random() * (WORLD_SIZE - 40);            const tileX = Math.floor(x / TILE_SIZE);            const tileY = Math.floor(y / TILE_SIZE);            if (world.map[tileY] && world.map[tileY][tileX] !== 1) valid = true;        }        world.globalVillagers.push({            x, y,            width: 22,            height: 28,            color: '#FFB74D',            name: 'Dorfbewohner',            dir: Math.random() * Math.PI * 2,            speed: 0.5 + Math.random() * 0.5,            wanderTimer: 0,            homeVillage,            homeBuilding,            atHome: false        });    }}// Nach dem Generieren der Welt-Dörfer aufrufenconst originalWorldGenerate = world.generate;world.generate = function() {    originalWorldGenerate.call(this);    spawnVillageNPCs();    spawnGlobalVillagers();};// NPCs im Dorf bewegen (Kreisbewegung um das Dorfzentrum)function updateVillageNPCs() {    for (const village of world.villages) {        if (!village.npcs) continue;        for (const npc of village.npcs) {            if (npc.aggressive) {                // Aggressiv: Auf Spieler zulaufen                const dx = player.x - npc.x;                const dy = player.y - npc.y;                const dist = Math.sqrt(dx*dx + dy*dy);                if (dist > 2) {                    npc.x += (dx/dist) * 1.2; // Aggro-Speed                    npc.y += (dy/dist) * 1.2;                }                npc.aggressiveTimer--;                if (npc.aggressiveTimer <= 0) {                    npc.aggressive = false;                }            } else {                // Normalverhalten                npc.moveAngle += npc.moveSpeed;                const r = 60 + Math.abs(Math.sin(npc.moveAngle * 0.7)) * 80;                npc.x = village.x + Math.cos(npc.moveAngle) * r;                npc.y = village.y + Math.sin(npc.moveAngle) * r;            }        }    }}function updateGlobalVillagers() {    for (const npc of world.globalVillagers || []) {        if (npc.aggressive) {            // Aggressiv: Auf Spieler zulaufen            const dx = player.x - npc.x;            const dy = player.y - npc.y;            const dist = Math.sqrt(dx*dx + dy*dy);            if (dist > 2) {                npc.x += (dx/dist) * 1.2;                npc.y += (dy/dist) * 1.2;            }            npc.aggressiveTimer--;            if (npc.aggressiveTimer <= 0) {                npc.aggressive = false;            }            continue;        }        // Normalverhalten        if (dayNightCycle.isNight) {            // Nachts: Gehe zum Haus            const target = npc.homeBuilding;            const dx = target.x + target.width/2 - (npc.x + npc.width/2);            const dy = target.y + target.height/2 - (npc.y + npc.height/2);            const dist = Math.sqrt(dx*dx + dy*dy);            if (dist > 2) {                npc.x += (dx/dist) * npc.speed;                npc.y += (dy/dist) * npc.speed;                npc.atHome = false;            } else {                npc.atHome = true;                // Bleibe im Haus                npc.x = target.x + target.width/2 - npc.width/2;                npc.y = target.y + target.height/2 - npc.height/2;            }        } else {            // Tag: Herumlaufen, aber nicht im Wasser oder in Häusern            if (npc.atHome) {                // Starte am Haus                npc.x = npc.homeBuilding.x + npc.homeBuilding.width/2 - npc.width/2;                npc.y = npc.homeBuilding.y + npc.homeBuilding.height/2 - npc.height/2;                npc.atHome = false;            }            // Pausen-Logik            if (npc.pauseTimer && npc.pauseTimer > 0) {                npc.pauseTimer--;                continue;            }            npc.wanderTimer--;            if (npc.wanderTimer <= 0) {                npc.dir += (Math.random() - 0.5) * 1.8; // Häufigere Richtungswechsel                npc.wanderTimer = 30 + Math.random() * 80; // Kürzere Wanderphasen                // Gelegentlich Pause machen                if (Math.random() < 0.2) {                    npc.pauseTimer = 20 + Math.random() * 40;                }            }            const dx = Math.cos(npc.dir) * npc.speed;            const dy = Math.sin(npc.dir) * npc.speed;            const newX = npc.x + dx;            const newY = npc.y + dy;            const tileX = Math.floor(newX / TILE_SIZE);            const tileY = Math.floor(newY / TILE_SIZE);            // Prüfe auf Wasser und Häuser            let inBuilding = false;            for (const village of world.villages) {                for (const building of village.buildings) {                    if (                        newX + npc.width > building.x &&                        newX < building.x + building.width &&                        newY + npc.height > building.y &&                        newY < building.y + building.height                    ) {                        inBuilding = true;                        break;                    }                }                if (inBuilding) break;            }            if (                tileX >= 0 && tileY >= 0 &&                tileX < WORLD_SIZE / TILE_SIZE &&                tileY < WORLD_SIZE / TILE_SIZE &&                world.map[tileY][tileX] !== 1 &&                !inBuilding            ) {                npc.x = newX;                npc.y = newY;            } else {                npc.dir += Math.PI; // Drehen            }        }    }}
