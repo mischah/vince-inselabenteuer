@@ -1,7 +1,7 @@
 {
   "name": "inselabenteuer",
   "productName": "Inselabenteuer",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Ein Spiel über ein Abenteuer auf einer Insel",
   "main": "electron/main.js",
   "scripts": {

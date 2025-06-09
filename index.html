@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="game-container">
-        <canvas id="gameCanvas" style="border: 3px solid red;"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div class="hud">
             <div id="health">HP: 100</div>
             <div id="position">Position: 0, 0</div>
@@ -16,6 +16,7 @@
             <div id="inventory-button">Inventar [I]</div>
             <div id="quest-button">Quests [Q]</div>
         </div>
+        <div id="version-display"></div>
     </div>
     <div id="equipment-bar"></div>
     <div id="inventory-panel" class="panel hidden">
@@ -38,5 +39,32 @@
     <script src="movePlayer.js"></script>
     <script src="quests.js"></script>
     <script src="game.js"></script>
+    <script>
+        // Versionsanzeige einrichten
+        document.addEventListener('DOMContentLoaded', () => {
+            const versionDisplay = document.getElementById('version-display');
+            if (versionDisplay) {
+                // Methode 1: Aus URL-Parametern
+                const urlParams = new URLSearchParams(window.location.search);
+                const versionFromUrl = urlParams.get('version');
+                
+                // Methode 2: Aus Electron API
+                const electronVersion = window.electronAPI && window.electronAPI.appVersion;
+                
+                // Verwende die erste verfügbare Quelle
+                if (versionFromUrl) {
+                    versionDisplay.textContent = 'v' + versionFromUrl;
+                    console.log('Version set from URL:', versionFromUrl);
+                } else if (electronVersion) {
+                    versionDisplay.textContent = electronVersion;
+                    console.log('Version set from Electron API:', electronVersion);
+                } else {
+                    // Fallback auf die feste Version aus der package.json
+                    versionDisplay.textContent = 'v0.0.1';
+                    console.log('Version set from fallback');
+                }
+            }
+        });
+    </script>
 </body>
 </html>

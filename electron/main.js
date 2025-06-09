@@ -1,5 +1,16 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, protocol } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+// Die Versionsnummer aus package.json lesen
+let appVersion = '0.0.1'; // Standardwert
+try {
+  const packageJsonPath = path.join(__dirname, '..', 'package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  appVersion = packageJson.version;
+} catch (err) {
+  console.error('Fehler beim Lesen der package.json:', err);
+}
 
 // Keep a global reference of the window object to prevent garbage collection
 let mainWindow;
@@ -17,11 +28,24 @@ function createWindow() {
     icon: path.join(__dirname, '../graphics/icon.png')
   });
 
-  // Load the index.html of the app
-  mainWindow.loadFile(path.join(__dirname, '../index.html'));
+  // Load the index.html of the app with version as query parameter
+  mainWindow.loadFile(path.join(__dirname, '../index.html'), {
+    query: { 'version': appVersion }
+  });
 
-  // Always open DevTools to troubleshoot
-  mainWindow.webContents.openDevTools();
+  // Only open DevTools in development mode
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
+  
+  // Version in den Konsolenfenstern ausgeben
+  try {
+    const packagePath = path.join(__dirname, '..', 'package.json');
+    const packageJson = require(packagePath);
+    console.log('App Version from main process:', packageJson.version);
+  } catch (err) {
+    console.error('Error reading package.json:', err);
+  }
 
   // Remove the menu bar for a cleaner game experience
   mainWindow.setMenuBarVisibility(false);

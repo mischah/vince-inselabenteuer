@@ -1752,6 +1752,8 @@ function gameLoop() {
     // Welt zeichnen
     drawWorld();
     
+    // Versionsanzeige wird jetzt über das DOM gesteuert (in preload.js)
+    
     // Nächsten Frame anfordern
     requestAnimationFrame(gameLoop);
 }

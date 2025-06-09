@@ -1,10 +1,44 @@
 // This file is used to safely expose Node.js APIs to the renderer process
+try {
+  // Nur im Electron-Kontext ausführen (nicht im Browser)
+  const { contextBridge, ipcRenderer } = require('electron');
+  const path = require('path');
+  const fs = require('fs');
+  
+  // Lese die Version aus der package.json
+  let appVersion = 'v?.?.?';
+  try {
+    const packagePath = path.join(__dirname, '..', 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    appVersion = 'v' + packageJson.version;
+    console.log('Successfully read version from package.json:', appVersion);
+  } catch (err) {
+    console.error('Fehler beim Lesen der package.json:', err);
+  }
+  
+  // Exponiere Daten und Funktionen für den Renderer-Prozess
+  contextBridge.exposeInMainWorld('electronAPI', {
+    isElectron: true,
+    appVersion: appVersion
+  });
+} catch (err) {
+  // Stille Fehlerbehandlung für Browser-Kontext
+  console.log('Not running in Electron context, skipping preload setup');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   console.log('Preload script loaded');
   
-  // Debug information for Electron context
-  console.log('Electron preload script executed');
-  console.log('Document ready state:', document.readyState);
+  // Setze die Versionsnummer in das dafür vorgesehene Element
+  setTimeout(() => {
+    const versionDisplay = document.getElementById('version-display');
+    if (versionDisplay) {
+      versionDisplay.textContent = appVersion;
+      console.log('Version display element found and updated with:', appVersion);
+    } else {
+      console.error('Version display element not found!');
+    }
+  }, 500); // Kurz warten, um sicherzustellen, dass das DOM geladen ist
   
   // Add error handling
   window.addEventListener('error', (event) => {
